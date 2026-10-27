@@ -1,36 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getEmployees, 
-  createEmployee, 
-  updateEmployee, 
-  deleteEmployee 
-} from './services/employeeService';
-import { 
-  Users, 
-  UserPlus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  X, 
-  AlertCircle, 
-  CheckCircle2, 
-  Loader2 
-} from 'lucide-react';
+import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from './services/employeeService';
+import './index.css';
 
 function App() {
   const [employees, setEmployees] = useState([]);
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // State cho Modal (Thêm / Sửa)
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentId, setCurrentId] = useState(null);
-
-  // Form data
-  const initialFormState = {
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [form, setForm] = useState({
     employeeId: '',
     fullName: '',
     gender: 'Nam',
@@ -41,346 +18,273 @@ function App() {
     phone: '',
     hireDate: '',
     status: 'Đang làm việc'
-  };
-  const [formData, setFormData] = useState(initialFormState);
-
-  // Lấy danh sách nhân viên
-  const fetchEmployees = async (keyword = '') => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await getEmployees(keyword);
-      setEmployees(data);
-    } catch (err) {
-      setError('Không thể kết nối đến server Backend. Vui lòng kiểm tra lại!');
-    } finally {
-      setLoading(false);
-    }
-  };
+  });
+  
+  const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchEmployees();
   }, []);
 
-  // Xử lý tìm kiếm
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchEmployees(searchKeyword);
-  };
+  useEffect(() => {
+    const results = employees.filter(emp => 
+      (emp.fullName && emp.fullName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (emp.employeeId && emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (emp.email && emp.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    setFilteredEmployees(results);
+  }, [searchTerm, employees]);
 
-  // Mở modal thêm mới
-  const handleOpenAddModal = () => {
-    setFormData(initialFormState);
-    setIsEditing(false);
-    setIsModalOpen(true);
-  };
-
-  // Mở modal cập nhật
-  const handleOpenEditModal = (employee) => {
-    setFormData(employee);
-    setCurrentId(employee._id);
-    setIsEditing(true);
-    setIsModalOpen(true);
-  };
-
-  // Xử lý submit Form (Thêm hoặc Sửa)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccessMessage('');
-
+  const fetchEmployees = async () => {
     try {
-      if (isEditing) {
-        await updateEmployee(currentId, formData);
-        setSuccessMessage('Cập nhật thông tin nhân viên thành công!');
-      } else {
-        await createEmployee(formData);
-        setSuccessMessage('Thêm nhân viên mới thành công!');
-      }
-      setIsModalOpen(false);
-      fetchEmployees(searchKeyword);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Đã xảy ra lỗi khi lưu dữ liệu.');
+      const data = await getEmployees();
+      setEmployees(data);
+      setFilteredEmployees(data);
+    } catch (error) {
+      console.error("Không thể tải dữ liệu nhân viên");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Xử lý Xóa nhân viên
-  const handleDelete = async (id, name) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân viên "${name}" không?`)) {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.employeeId || !form.fullName || !form.email) {
+      alert('Vui lòng điền đầy đủ Mã nhân viên, Họ và tên, và Email!');
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await updateEmployee(editingId, form);
+        alert('Cập nhật nhân viên thành công!');
+      } else {
+        await createEmployee(form);
+        alert('Thêm nhân viên thành công!');
+      }
+      
+      setForm({
+        employeeId: '',
+        fullName: '',
+        gender: 'Nam',
+        dateOfBirth: '',
+        department: '',
+        position: '',
+        email: '',
+        phone: '',
+        hireDate: '',
+        status: 'Đang làm việc'
+      });
+      setEditingId(null);
+      fetchEmployees();
+    } catch (error) {
+      alert('Thực hiện thất bại, vui lòng kiểm tra lại!');
+    }
+  };
+
+  const handleEdit = (emp) => {
+    setForm({
+      employeeId: emp.employeeId || '',
+      fullName: emp.fullName || '',
+      gender: emp.gender || 'Nam',
+      dateOfBirth: emp.dateOfBirth || '',
+      department: emp.department || '',
+      position: emp.position || '',
+      email: emp.email || '',
+      phone: emp.phone || '',
+      hireDate: emp.hireDate || '',
+      status: emp.status || 'Đang làm việc'
+    });
+    setEditingId(emp._id || emp.id);
+  };
+
+  const handleCancelEdit = () => {
+    setForm({
+      employeeId: '',
+      fullName: '',
+      gender: 'Nam',
+      dateOfBirth: '',
+      department: '',
+      position: '',
+      email: '',
+      phone: '',
+      hireDate: '',
+      status: 'Đang làm việc'
+    });
+    setEditingId(null);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa nhân viên này không?')) {
       try {
         await deleteEmployee(id);
-        setSuccessMessage('Xóa nhân viên thành công!');
-        fetchEmployees(searchKeyword);
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (err) {
-        setError('Không thể xóa nhân viên này.');
+        fetchEmployees();
+      } catch (error) {
+        alert('Xóa nhân viên thất bại!');
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
-      {/* Header */}
-      <header className="bg-indigo-600 text-white shadow-md py-4 px-6 flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-          <Users size={32} />
-          <h1 className="text-2xl font-bold">Hệ Thống Quản Lý Nhân Sự</h1>
-        </div>
-        <span className="text-sm bg-indigo-700 px-3 py-1 rounded-full">MSSV: 223342 - Huỳnh Quốc Huy</span>
-      </header>
-
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto p-6">
-        {/* Thông báo lỗi / thành công */}
-        {error && (
-          <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center space-x-2">
-            <AlertCircle size={20} />
-            <span>{error}</span>
-          </div>
-        )}
-        {successMessage && (
-          <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded flex items-center space-x-2">
-            <CheckCircle2 size={20} />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* Thanh công cụ: Tìm kiếm & Nút Thêm */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <form onSubmit={handleSearch} className="flex w-full md:w-1/2 space-x-2">
-            <div className="relative flex-grow">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                <Search size={18} />
-              </span>
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo Mã NV hoặc Họ tên..."
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-            >
-              Tìm kiếm
-            </button>
-          </form>
-
-          <button
-            onClick={handleOpenAddModal}
-            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition w-full md:w-auto justify-center"
+    <div style={{ maxWidth: '1100px', margin: '30px auto', fontFamily: 'Arial, sans-serif', padding: '20px' }}>
+      <h2 style={{ textAlign: 'center', color: '#333' }}>HỆ THỐNG QUẢN LÝ NHÂN SỰ</h2>
+      
+      {/* Form Thêm / Sửa Nhân Viên */}
+      <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <h3>{editingId ? 'Cập Nhật Thông Tin Nhân Viên' : 'Thêm Nhân Viên Mới'}</h3>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          <input 
+            type="text" 
+            placeholder="Mã nhân viên" 
+            value={form.employeeId} 
+            onChange={(e) => setForm({ ...form, employeeId: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" 
+            placeholder="Họ và tên" 
+            value={form.fullName} 
+            onChange={(e) => setForm({ ...form, fullName: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <select 
+            value={form.gender} 
+            onChange={(e) => setForm({ ...form, gender: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
           >
-            <UserPlus size={20} />
-            <span>Thêm nhân viên</span>
-          </button>
-        </div>
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+            <option value="Khác">Khác</option>
+          </select>
+          <input 
+            type="text" 
+            placeholder="Ngày sinh" 
+            value={form.dateOfBirth} 
+            onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" 
+            placeholder="Phòng ban" 
+            value={form.department} 
+            onChange={(e) => setForm({ ...form, department: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" 
+            placeholder="Chức vụ" 
+            value={form.position} 
+            onChange={(e) => setForm({ ...form, position: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="email" 
+            placeholder="Email" 
+            value={form.email} 
+            onChange={(e) => setForm({ ...form, email: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" 
+            placeholder="Số điện thoại" 
+            value={form.phone} 
+            onChange={(e) => setForm({ ...form, phone: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" 
+            placeholder="Ngày vào làm" 
+            value={form.hireDate} 
+            onChange={(e) => setForm({ ...form, hireDate: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <select 
+            value={form.status} 
+            onChange={(e) => setForm({ ...form, status: e.target.value })} 
+            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', gridColumn: 'span 3' }}
+          >
+            <option value="Đang làm việc">Đang làm việc</option>
+            <option value="Không làm việc">Không làm việc</option>
+          </select>
 
-        {/* Bảng danh sách nhân viên */}
-        <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="animate-spin text-indigo-600" size={36} />
-              <span className="ml-2 text-gray-500">Đang tải dữ liệu...</span>
-            </div>
-          ) : employees.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">Không tìm thấy nhân viên nào.</p>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã NV</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Họ tên</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phòng ban</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chức vụ</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số điện thoại</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {employees.map((emp) => (
-                  <tr key={emp._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-indigo-600">{emp.employeeId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{emp.fullName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{emp.department}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{emp.position}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">{emp.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{emp.phone}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        emp.status === 'Đang làm việc' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {emp.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center space-x-2">
-                      <button
-                        onClick={() => handleOpenEditModal(emp)}
-                        className="text-blue-600 hover:text-blue-900 inline-block p-1"
-                        title="Sửa"
+          <div style={{ gridColumn: 'span 3', display: 'flex', gap: '10px', marginTop: '10px' }}>
+            <button type="submit" style={{ flex: 1, padding: '10px', background: editingId ? '#28a745' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              {editingId ? 'Lưu Thay Đổi' : 'Thêm Nhân Viên'}
+            </button>
+            {editingId && (
+              <button type="button" onClick={handleCancelEdit} style={{ padding: '10px 20px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                Hủy
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Thanh Tìm Kiếm & Danh Sách */}
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>Danh Sách Nhân Sự</h3>
+        <input 
+          type="text" 
+          placeholder="🔍 Tìm kiếm nhân viên..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ padding: '8px 12px', width: '300px', borderRadius: '4px', border: '1px solid #ccc' }}
+        />
+      </div>
+
+      {loading ? (
+        <p>Đang tải dữ liệu...</p>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', background: 'white', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ background: '#007bff', color: 'white', textAlign: 'left' }}>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Mã NV</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Họ Tên</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Giới Tính</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Phòng Ban</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Chức Vụ</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Email / SĐT</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd' }}>Trạng Thái</th>
+                <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEmployees.length > 0 ? (
+                filteredEmployees.map((emp) => (
+                  <tr key={emp._id || emp.id}>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.employeeId}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.fullName}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.gender}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.department}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.position}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.email}<br/><small>{emp.phone}</small></td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd' }}>{emp.status}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                      <button 
+                        onClick={() => handleEdit(emp)} 
+                        style={{ background: '#ffc107', color: '#333', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontWeight: 'bold' }}
                       >
-                        <Edit size={18} />
+                        Sửa
                       </button>
-                      <button
-                        onClick={() => handleDelete(emp._id, emp.fullName)}
-                        className="text-red-600 hover:text-red-900 inline-block p-1"
-                        title="Xóa"
+                      <button 
+                        onClick={() => handleDelete(emp._id || emp.id)} 
+                        style={{ background: '#dc3545', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
                       >
-                        <Trash2 size={18} />
+                        Xóa
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </main>
-
-      {/* Modal Thêm / Sửa Nhân viên */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-xl font-bold mb-4">
-              {isEditing ? 'Cập Nhật Thông Tin Nhân Viên' : 'Thêm Nhân Viên Mới'}
-            </h2>
-
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Mã nhân viên (*)</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.employeeId}
-                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Họ và tên (*)</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Giới tính</label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                  <option value="Khác">Khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Ngày sinh</label>
-                <input
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phòng ban</label>
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Chức vụ</label>
-                <input
-                  type="text"
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email (*)</label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Số điện thoại</label>
-                <input
-                  type="text"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Ngày vào làm</label>
-                <input
-                  type="date"
-                  value={formData.hireDate}
-                  onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Trạng thái làm việc</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="Đang làm việc">Đang làm việc</option>
-                  <option value="Đã nghỉ việc">Đã nghỉ việc</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2 flex justify-end space-x-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition"
-                >
-                  {isEditing ? 'Cập Nhật' : 'Lưu Hồ Sơ'}
-                </button>
-              </div>
-            </form>
-          </div>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '20px', color: '#777' }}>Không có nhân viên nào.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

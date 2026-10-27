@@ -1,0 +1,15 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f4f6f8;
+  font-family: Arial, sans-serif;
+  color: #333;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input:focus, button:focus {
+  outline: none;
+}
